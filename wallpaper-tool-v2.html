@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallpaper Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a1f; color: #e8e6e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; max-width: 1100px; margin: 0 auto; }
+  .panel { background: #24242b; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .panel h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 14px; }
+
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  select { width: 100%; padding: 9px 12px; background: #2e2e38; border: 1px solid #3a3a44; border-radius: 8px; color: #e8e6e0; font-size: 13px; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  select:focus { outline: none; border-color: #5a7fff; }
+  .filename-preview { margin-top: 10px; background: #1e1e26; border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #666; line-height: 1.8; }
+  .filename-preview span { color: #8aafff; font-family: monospace; word-break: break-all; }
+
+  .upload-zone { border: 2px dashed #3a3a44; border-radius: 10px; padding: 18px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; position: relative; }
+  .upload-zone:hover, .upload-zone.drag { border-color: #5a7fff; background: #1e1e2a; }
+  .upload-zone.has-file { border-color: #3a7a5a; background: #1a2420; border-style: solid; }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 22px; margin-bottom: 4px; }
+  .upload-label { font-size: 13px; color: #aaa; }
+  .upload-label strong { color: #e8e6e0; display: block; font-size: 13px; margin-bottom: 2px; }
+
+  .dev-tabs { display: flex; gap: 5px; margin-bottom: 14px; }
+  .dev-tab { flex: 1; padding: 7px 4px; border-radius: 8px; background: #2e2e38; border: none; color: #888; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center; line-height: 1.4; }
+  .dev-tab:hover { background: #3a3a46; color: #ccc; }
+  .dev-tab.active { background: #5a7fff; color: white; }
+
+  .device-panel { display: none; }
+  .device-panel.active { display: block; }
+
+  .pos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 12px; }
+  .pos-cell { aspect-ratio: 1; border-radius: 6px; background: #2e2e38; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #555; }
+  .pos-cell:hover { background: #3a3a46; color: #999; }
+  .pos-cell.active { background: #5a7fff22; border-color: #5a7fff; color: #5a7fff; }
+
+  .control-row { margin-bottom: 11px; }
+  .control-row label { font-size: 12px; color: #888; display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .control-row label span { color: #ccc; font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: #5a7fff; }
+
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .filter-chip { padding: 5px 10px; border-radius: 20px; background: #2e2e38; border: none; color: #aaa; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .filter-chip:hover { background: #3a3a46; color: #e8e6e0; }
+  .filter-chip.active { background: #5a7fff22; border: 1px solid #5a7fff44; color: #8aafff; }
+
+  .btn-generate { width: 100%; padding: 13px; background: #5a7fff; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-bottom: 10px; }
+  .btn-generate:hover { opacity: 0.88; }
+  .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-dl-all { width: 100%; padding: 13px; background: #3a9a6a; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; display: none; }
+  .btn-dl-all:hover { opacity: 0.88; }
+  .status { font-size: 12px; color: #5a7fff; text-align: center; margin: 8px 0; min-height: 18px; }
+
+  .preview-area { display: flex; flex-direction: column; gap: 16px; }
+  #previewCanvas { width: 100%; border-radius: 10px; background: #1a1a1f; display: none; }
+  .fmt-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fmt-tab { padding: 5px 12px; border-radius: 20px; background: #2e2e38; border: none; color: #888; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .fmt-tab:hover { background: #3a3a46; }
+  .fmt-tab.active { background: #5a7fff; color: white; }
+
+  .dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dl-item { background: #1e1e26; border-radius: 8px; padding: 10px; }
+  .dl-item .dl-name { font-size: 11px; color: #888; font-weight: 600; margin-bottom: 3px; }
+  .dl-item .dl-file { font-size: 10px; color: #444; margin-bottom: 6px; font-family: monospace; word-break: break-all; }
+  .dl-btns { display: flex; gap: 6px; }
+  .dl-btn { flex: 1; padding: 6px; border-radius: 6px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+  .dl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .dl-btn.bg { background: #2e3a5a; color: #8aafff; }
+  .dl-btn.cal { background: #2e5a3a; color: #8acf9a; }
+  .dl-btn:hover:not(:disabled) { opacity: 0.8; }
+
+  canvas { display: none; }
+  .header { max-width: 1100px; margin: 0 auto 20px; }
+  @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Wallpaper Generator</h1>
+  <p class="subtitle">Hintergründe für alle Apple-Geräte mit Kalender-Overlay</p>
+</div>
+
+<div class="layout">
+  <div>
+
+    <div class="panel">
+      <h2>Monat & Jahr</h2>
+      <div class="date-row">
+        <select id="selMonth">
+          <option value="Januar">Januar</option><option value="Februar">Februar</option>
+          <option value="März">März</option><option value="April">April</option>
+          <option value="Mai">Mai</option><option value="Juni">Juni</option>
+          <option value="Juli">Juli</option><option value="August" selected>August</option>
+          <option value="September">September</option><option value="Oktober">Oktober</option>
+          <option value="November">November</option><option value="Dezember">Dezember</option>
+        </select>
+        <select id="selYear"></select>
+      </div>
+      <div class="filename-preview" id="filenamePreview"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Bilder</h2>
+      <div class="upload-zone" id="bgZone">
+        <input type="file" id="bgInput" accept="image/*">
+        <div class="upload-icon">🖼</div>
+        <div class="upload-label" id="bgLabel"><strong>Hintergrundbild</strong>Datei auswählen oder ablegen</div>
+      </div>
+      <div class="upload-zone" id="calZone">
+        <input type="file" id="calInput" accept="image/*">
+        <div class="upload-icon">📅</div>
+        <div class="upload-label" id="calLabel"><strong>Kalender-Overlay</strong>Optional</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Kalender-Position</h2>
+      <div class="dev-tabs" id="devTabs">
+        <button class="dev-tab active" data-key="ipad-quer">📱 iPad<br>Quer</button>
+        <button class="dev-tab" data-key="ipad-hoch">📱 iPad<br>Hoch</button>
+        <button class="dev-tab" data-key="mac">🖥 Mac</button>
+        <button class="dev-tab" data-key="iphone">📲 iPhone</button>
+      </div>
+      <div id="panels"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Bildfilter</h2>
+      <div class="filter-row">
+        <button class="filter-chip active" data-filter="none">Original</button>
+        <button class="filter-chip" data-filter="dark">Dunkler</button>
+        <button class="filter-chip" data-filter="bright">Heller</button>
+        <button class="filter-chip" data-filter="warm">Warm</button>
+        <button class="filter-chip" data-filter="cool">Kalt</button>
+        <button class="filter-chip" data-filter="bw">S/W</button>
+        <button class="filter-chip" data-filter="sepia">Sepia</button>
+        <button class="filter-chip" data-filter="vivid">Lebendig</button>
+        <button class="filter-chip" data-filter="fade">Verblasst</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Generieren</h2>
+      <button class="btn-generate" id="generateBtn" disabled>Vorschau & Dateien vorbereiten</button>
+      <div class="status" id="status"></div>
+      <button class="btn-dl-all" id="dlAllBtn">⬇ Alle Dateien herunterladen</button>
+    </div>
+
+  </div>
+
+  <div class="panel preview-area">
+    <h2>Vorschau</h2>
+    <div class="fmt-tabs" id="fmtTabs"></div>
+    <canvas id="previewCanvas"></canvas>
+    <div class="dl-grid" id="dlGrid"></div>
+  </div>
+</div>
+
+<canvas id="workCanvas"></canvas>
+
+<script>
+const FORMATS = [
+  { id:'ipad-quer',    name:'iPad Quer',     suffix:'Tablet_quer',      settingsKey:'ipad-quer',  w:2732, h:2048 },
+  { id:'ipad-hoch',   name:'iPad Hoch',     suffix:'Tablet_hoch',      settingsKey:'ipad-hoch',  w:2732, h:3643 },
+  { id:'ipad-gesamt', name:'iPad Gesamt',   suffix:'Tablet_quer+hoch', settingsKey:'ipad-quer',  w:2732, h:5692, special:'dual', settingsKey2:'ipad-hoch' },
+  { id:'mac',         name:'Mac Desktop',   suffix:'Desktop',          settingsKey:'mac',         w:5120, h:3200 },
+  { id:'iphone',      name:'iPhone',        suffix:'Handy',            settingsKey:'iphone',      w:1320, h:2868 },
+];
+
+const DEV_PREVIEW = { 'ipad-quer':'ipad-quer', 'ipad-hoch':'ipad-hoch', 'mac':'mac', 'iphone':'iphone' };
+
+const FILTERS = {
+  none:null, dark:'brightness(0.6)', bright:'brightness(1.35)',
+  warm:'sepia(0.3) saturate(1.4) hue-rotate(-15deg)',
+  cool:'saturate(0.8) hue-rotate(30deg) brightness(1.05)',
+  bw:'grayscale(1)', sepia:'sepia(0.7)',
+  vivid:'saturate(2) contrast(1.1)', fade:'brightness(1.1) saturate(0.5) contrast(0.85)',
+};
+
+const KEYS = ['ipad-quer','ipad-hoch','mac','iphone'];
+const devSettings = {};
+KEYS.forEach(k => { devSettings[k] = { pos:'top-center', size:40, pad:5 }; });
+
+const ARROWS = { 'top-left':'↖','top-center':'↑','top-right':'↗','mid-left':'←','center':'·','mid-right':'→','bot-left':'↙','bot-center':'↓','bot-right':'↘' };
+const POS_KEYS = ['top-left','top-center','top-right','mid-left','center','mid-right','bot-left','bot-center','bot-right'];
+
+let bgImg=null, calImg=null, bgFileName='';
+let activeFilter='none';
+let previewFmtId='ipad-quer';
+let generatedUrls={};
+
+// Jahr
+const yearSel = document.getElementById('selYear');
+const curYear = new Date().getFullYear();
+for(let y=curYear; y<=curYear+3; y++){
+  const o=document.createElement('option');
+  o.value=String(y).slice(2); o.textContent=y;
+  if(y===curYear) o.selected=true;
+  yearSel.appendChild(o);
+}
+
+function getDatePrefix(){ return `${document.getElementById('selMonth').value}_${document.getElementById('selYear').value}`; }
+function getImageName(){ return bgFileName ? bgFileName.replace(/\.[^/.]+$/,'').replace(/\s+/g,'_') : 'Bild'; }
+function buildFilename(fmt, withCal){ return `${getDatePrefix()}_${getImageName()}_${withCal ? fmt.suffix+'_Kalender' : fmt.suffix}.png`; }
+
+function updateFilenamePreview(){
+  const ex = buildFilename(FORMATS[0], false);
+  document.getElementById('filenamePreview').innerHTML = `Beispiel:<br><span>${ex}</span>`;
+}
+document.getElementById('selMonth').addEventListener('change', ()=>{ updateFilenamePreview(); rebuildDlGrid(); });
+document.getElementById('selYear').addEventListener('change', ()=>{ updateFilenamePreview(); rebuildDlGrid(); });
+updateFilenamePreview();
+
+// Panels
+const panelsEl = document.getElementById('panels');
+KEYS.forEach(key => {
+  const div = document.createElement('div');
+  div.className = 'device-panel' + (key==='ipad-quer' ? ' active' : '');
+  div.id = `panel-${key}`;
+  div.innerHTML = `
+    <div class="pos-grid" id="pg-${key}">
+      ${POS_KEYS.map(p=>`<div class="pos-cell${p==='top-center'?' active':''}" data-pos="${p}">${ARROWS[p]}</div>`).join('')}
+    </div>
+    <div class="control-row">
+      <label>Größe <span id="${key}-sizeVal">40%</span></label>
+      <input type="range" id="${key}-size" min="10" max="80" value="40">
+    </div>
+    <div class="control-row">
+      <label>Abstand <span id="${key}-padVal">5%</span></label>
+      <input type="range" id="${key}-pad" min="0" max="20" value="5">
+    </div>`;
+  panelsEl.appendChild(div);
+
+  div.querySelector(`#pg-${key}`).addEventListener('click', e => {
+    const cell = e.target.closest('.pos-cell');
+    if(!cell) return;
+    div.querySelectorAll('.pos-cell').forEach(c=>c.classList.remove('active'));
+    cell.classList.add('active');
+    devSettings[key].pos = cell.dataset.pos;
+    updatePreview();
+  });
+  div.querySelector(`#${key}-size`).addEventListener('input', e => {
+    devSettings[key].size = +e.target.value;
+    document.getElementById(`${key}-sizeVal`).textContent = e.target.value+'%';
+    updatePreview();
+  });
+  div.querySelector(`#${key}-pad`).addEventListener('input', e => {
+    devSettings[key].pad = +e.target.value;
+    document.getElementById(`${key}-padVal`).textContent = e.target.value+'%';
+    updatePreview();
+  });
+});
+
+// Device Tabs
+document.getElementById('devTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.dev-tab');
+  if(!tab) return;
+  const key = tab.dataset.key;
+  document.querySelectorAll('.dev-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  document.querySelectorAll('.device-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`panel-${key}`).classList.add('active');
+  previewFmtId = DEV_PREVIEW[key];
+  document.querySelectorAll('.fmt-tab').forEach(t=>t.classList.toggle('active', t.dataset.fmtid===previewFmtId));
+  updatePreview();
+});
+
+// Filter
+document.querySelectorAll('.filter-chip').forEach(chip=>{
+  chip.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    updatePreview();
+  });
+});
+
+// Upload
+function setupUpload(zoneId, inputId, labelId, onLoad){
+  const zone=document.getElementById(zoneId), input=document.getElementById(inputId), label=document.getElementById(labelId);
+  const load = file => {
+    const r = new FileReader();
+    r.onload = e => {
+      const img = new Image();
+      img.onload = () => { onLoad(img, file.name); zone.classList.add('has-file'); label.innerHTML=`<strong>${file.name}</strong>Geladen ✓`; updateGenBtn(); updatePreview(); updateFilenamePreview(); rebuildDlGrid(); };
+      img.src = e.target.result;
+    };
+    r.readAsDataURL(file);
+  };
+  input.addEventListener('change', e=>{ if(e.target.files[0]) load(e.target.files[0]); });
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+}
+setupUpload('bgZone','bgInput','bgLabel',(img,name)=>{ bgImg=img; bgFileName=name; });
+setupUpload('calZone','calInput','calLabel',(img)=>{ calImg=img; });
+
+// Format Tabs
+function buildFmtTabs(){
+  const el = document.getElementById('fmtTabs'); el.innerHTML='';
+  FORMATS.forEach(fmt=>{
+    const btn = document.createElement('button');
+    btn.className = 'fmt-tab'+(fmt.id===previewFmtId?' active':'');
+    btn.textContent = fmt.name; btn.dataset.fmtid = fmt.id;
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.fmt-tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); previewFmtId=fmt.id; updatePreview();
+    });
+    el.appendChild(btn);
+  });
+}
+buildFmtTabs();
+
+function rebuildDlGrid(){
+  const grid = document.getElementById('dlGrid'); grid.innerHTML='';
+  FORMATS.forEach(fmt=>{
+    const item = document.createElement('div'); item.className='dl-item';
+    item.innerHTML=`<div class="dl-name">${fmt.name}</div>
+      <div class="dl-file" id="fname-${fmt.id}">${buildFilename(fmt,false)}</div>
+      <div class="dl-btns">
+        <button class="dl-btn bg" id="dl-bg-${fmt.id}" disabled>Bg</button>
+        <button class="dl-btn cal" id="dl-cal-${fmt.id}" disabled>+ Kal</button>
+      </div>`;
+    grid.appendChild(item);
+  });
+}
+rebuildDlGrid();
+
+function updateGenBtn(){ document.getElementById('generateBtn').disabled=!bgImg; }
+
+function drawBg(ctx, w, h, offsetY=0){
+  if(!bgImg) return;
+  const scale = Math.max(w/bgImg.width, h/bgImg.height);
+  const sw=bgImg.width*scale, sh=bgImg.height*scale;
+  const sx=(w-sw)/2, sy=offsetY+(h-sh)/2;
+  const f = FILTERS[activeFilter];
+  if(f){ ctx.save(); ctx.filter=f; }
+  ctx.drawImage(bgImg, sx, sy, sw, sh);
+  if(f) ctx.restore();
+}
+
+function drawCal(ctx, w, h, key, offsetY=0){
+  if(!calImg) return;
+  const s = devSettings[key];
+  const calW = w*(s.size/100);
+  const calH = calW*(calImg.height/calImg.width);
+  const pad = Math.min(w,h)*(s.pad/100);
+  const parts = s.pos.split('-');
+  const v=parts[0], h_=parts[1];
+  let x=pad, y=offsetY+pad;
+  if(h_==='center') x=(w-calW)/2;
+  else if(h_==='right') x=w-calW-pad;
+  if(v==='mid') y=offsetY+(h-calH)/2;
+  else if(v==='bot') y=offsetY+h-calH-pad;
+  else if(v==='center'){ x=(w-calW)/2; y=offsetY+(h-calH)/2; }
+  ctx.drawImage(calImg, x, y, calW, calH);
+}
+
+function drawFormat(canvas, fmt, withCal){
+  canvas.width=fmt.w; canvas.height=fmt.h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,fmt.w,fmt.h);
+  if(fmt.special==='dual'){
+    const topH=2048, botH=3643;
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,fmt.w,topH); ctx.clip();
+    drawBg(ctx,fmt.w,topH,0); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0,topH,fmt.w,botH); ctx.clip();
+    drawBg(ctx,fmt.w,botH,topH); ctx.restore();
+    if(withCal){
+      drawCal(ctx,fmt.w,topH,'ipad-quer',0);
+      drawCal(ctx,fmt.w,botH,'ipad-hoch',topH);
+    }
+  } else {
+    drawBg(ctx,fmt.w,fmt.h,0);
+    if(withCal) drawCal(ctx,fmt.w,fmt.h,fmt.settingsKey,0);
+  }
+}
+
+function updatePreview(){
+  if(!bgImg) return;
+  const fmt = FORMATS.find(f=>f.id===previewFmtId)||FORMATS[0];
+  const canvas = document.getElementById('previewCanvas');
+  drawFormat(canvas, fmt, !!calImg);
+  const maxW = canvas.parentElement.clientWidth-40;
+  canvas.style.width = maxW+'px';
+  canvas.style.height = (maxW*fmt.h/fmt.w)+'px';
+  canvas.style.display = 'block';
+}
+
+document.getElementById('generateBtn').addEventListener('click',()=>{
+  if(!bgImg) return;
+  document.getElementById('status').textContent='Generiere…';
+  document.getElementById('dlAllBtn').style.display='none';
+  const work = document.getElementById('workCanvas');
+  generatedUrls={};
+  setTimeout(()=>{
+    FORMATS.forEach(fmt=>{
+      const bgName=buildFilename(fmt,false), calName=buildFilename(fmt,true);
+      drawFormat(work,fmt,false);
+      const bgUrl=work.toDataURL('image/png');
+      generatedUrls[`bg-${fmt.id}`]={url:bgUrl,name:bgName};
+      const bgBtn=document.getElementById(`dl-bg-${fmt.id}`);
+      bgBtn.disabled=false; bgBtn.onclick=()=>dl(bgUrl,bgName);
+      drawFormat(work,fmt,true);
+      const calUrl=work.toDataURL('image/png');
+      generatedUrls[`cal-${fmt.id}`]={url:calUrl,name:calName};
+      const calBtn=document.getElementById(`dl-cal-${fmt.id}`);
+      calBtn.disabled=!calImg; calBtn.onclick=()=>dl(calUrl,calName);
+      const fnEl=document.getElementById(`fname-${fmt.id}`);
+      if(fnEl) fnEl.textContent=bgName;
+    });
+    document.getElementById('status').textContent=`✓ ${calImg?10:5} Dateien bereit`;
+    document.getElementById('dlAllBtn').style.display='block';
+    updatePreview();
+  },50);
+});
+
+document.getElementById('dlAllBtn').addEventListener('click',()=>{
+  Object.values(generatedUrls).forEach(({url,name},i)=>{
+    if(!calImg&&name.includes('Kalender')) return;
+    setTimeout(()=>dl(url,name),i*120);
+  });
+});
+
+function dl(dataUrl,filename){ const a=document.createElement('a'); a.href=dataUrl; a.download=filename; a.click(); }
+</script>
+</body>
+</html>
