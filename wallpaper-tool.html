@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallpaper Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a1f; color: #e8e6e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
+  .grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; max-width: 1100px; margin: 0 auto; }
+  .panel { background: #24242b; border-radius: 14px; padding: 20px; }
+  .panel h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 16px; }
+
+  /* Upload zones */
+  .upload-zone { border: 2px dashed #3a3a44; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; margin-bottom: 12px; position: relative; }
+  .upload-zone:hover, .upload-zone.drag { border-color: #5a7fff; background: #1e1e2a; }
+  .upload-zone.has-file { border-color: #3a7a5a; background: #1a2420; border-style: solid; }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 28px; margin-bottom: 6px; }
+  .upload-label { font-size: 13px; color: #aaa; }
+  .upload-label strong { color: #e8e6e0; display: block; font-size: 14px; margin-bottom: 2px; }
+  .upload-label.active { color: #5a9a7a; }
+
+  /* Controls */
+  .control-row { margin-bottom: 14px; }
+  .control-row label { font-size: 12px; color: #888; display: flex; justify-content: space-between; margin-bottom: 6px; }
+  .control-row label span { color: #bbb; }
+  input[type=range] { width: 100%; accent-color: #5a7fff; height: 4px; }
+
+  /* Position grid */
+  .pos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 14px; }
+  .pos-cell { aspect-ratio: 1; border-radius: 6px; background: #2e2e38; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #555; }
+  .pos-cell:hover { background: #3a3a46; color: #999; }
+  .pos-cell.active { background: #5a7fff22; border-color: #5a7fff; color: #5a7fff; }
+
+  /* Filter */
+  .filter-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-chip { padding: 5px 10px; border-radius: 20px; background: #2e2e38; border: none; color: #aaa; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .filter-chip:hover { background: #3a3a46; color: #e8e6e0; }
+  .filter-chip.active { background: #5a7fff22; border: 1px solid #5a7fff44; color: #8aafff; }
+
+  /* Buttons */
+  .btn-generate { width: 100%; padding: 13px; background: #5a7fff; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-bottom: 10px; }
+  .btn-generate:hover { opacity: 0.88; }
+  .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-download-all { width: 100%; padding: 13px; background: #3a9a6a; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; display: none; }
+  .btn-download-all:hover { opacity: 0.88; }
+  .status { font-size: 12px; color: #5a7fff; text-align: center; margin: 8px 0; min-height: 18px; }
+
+  /* Preview */
+  .preview-area { display: flex; flex-direction: column; gap: 16px; }
+  #previewCanvas { width: 100%; border-radius: 10px; background: #1a1a1f; display: block; }
+  .format-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fmt-tab { padding: 5px 12px; border-radius: 20px; background: #2e2e38; border: none; color: #888; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .fmt-tab:hover { background: #3a3a46; }
+  .fmt-tab.active { background: #5a7fff; color: white; }
+  .download-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dl-item { background: #1e1e26; border-radius: 8px; padding: 10px; }
+  .dl-item .dl-name { font-size: 11px; color: #666; margin-bottom: 6px; }
+  .dl-btns { display: flex; gap: 6px; }
+  .dl-btn { flex: 1; padding: 6px; border-radius: 6px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+  .dl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .dl-btn.bg { background: #2e3a5a; color: #8aafff; }
+  .dl-btn.cal { background: #2e5a3a; color: #8acf9a; }
+  .dl-btn:hover:not(:disabled) { opacity: 0.8; }
+
+  canvas { display: none; }
+  .header { max-width: 1100px; margin: 0 auto 20px; }
+
+  @media (max-width: 700px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Wallpaper Generator</h1>
+  <p class="subtitle">Hintergründe für alle Apple-Geräte mit Kalender-Overlay</p>
+</div>
+
+<div class="grid">
+  <!-- Left Panel -->
+  <div>
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Bilder</h2>
+      <div class="upload-zone" id="bgZone">
+        <input type="file" id="bgInput" accept="image/*">
+        <div class="upload-icon">🖼</div>
+        <div class="upload-label" id="bgLabel"><strong>Hintergrundbild</strong>Datei auswählen oder ablegen</div>
+      </div>
+      <div class="upload-zone" id="calZone">
+        <input type="file" id="calInput" accept="image/*">
+        <div class="upload-icon">📅</div>
+        <div class="upload-label" id="calLabel"><strong>Kalender-Overlay</strong>Optional – Datei ablegen</div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Kalender-Position</h2>
+      <div class="pos-grid" id="posGrid">
+        <div class="pos-cell" data-pos="top-left">↖</div>
+        <div class="pos-cell active" data-pos="top-center">↑</div>
+        <div class="pos-cell" data-pos="top-right">↗</div>
+        <div class="pos-cell" data-pos="mid-left">←</div>
+        <div class="pos-cell" data-pos="center">·</div>
+        <div class="pos-cell" data-pos="mid-right">→</div>
+        <div class="pos-cell" data-pos="bot-left">↙</div>
+        <div class="pos-cell" data-pos="bot-center">↓</div>
+        <div class="pos-cell" data-pos="bot-right">↘</div>
+      </div>
+
+      <div class="control-row">
+        <label>Kalender-Größe <span id="calSizeVal">40%</span></label>
+        <input type="range" id="calSize" min="10" max="80" value="40">
+      </div>
+      <div class="control-row">
+        <label>Abstand vom Rand <span id="calPadVal">5%</span></label>
+        <input type="range" id="calPad" min="0" max="20" value="5">
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:16px">
+      <h2>Bildfilter</h2>
+      <div class="filter-row">
+        <button class="filter-chip active" data-filter="none">Original</button>
+        <button class="filter-chip" data-filter="dark">Dunkler</button>
+        <button class="filter-chip" data-filter="bright">Heller</button>
+        <button class="filter-chip" data-filter="warm">Warm</button>
+        <button class="filter-chip" data-filter="cool">Kalt</button>
+        <button class="filter-chip" data-filter="bw">S/W</button>
+        <button class="filter-chip" data-filter="sepia">Sepia</button>
+        <button class="filter-chip" data-filter="vivid">Lebendig</button>
+        <button class="filter-chip" data-filter="fade">Verblasst</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Generieren</h2>
+      <button class="btn-generate" id="generateBtn" disabled>Vorschau & Dateien vorbereiten</button>
+      <div class="status" id="status"></div>
+      <button class="btn-download-all" id="downloadAllBtn">⬇ Alle Dateien herunterladen</button>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="panel preview-area">
+    <h2>Vorschau</h2>
+    <div class="format-tabs" id="fmtTabs"></div>
+    <canvas id="previewCanvas"></canvas>
+    <div class="download-grid" id="downloadGrid"></div>
+  </div>
+</div>
+
+<canvas id="workCanvas"></canvas>
+
+<script>
+const FORMATS = [
+  { id: 'ipad-land',     name: 'iPad Quer',      w: 2732, h: 2048 },
+  { id: 'ipad-port',     name: 'iPad Hoch',       w: 2732, h: 3643 },
+  { id: 'ipad-total',    name: 'iPad Gesamt',     w: 2732, h: 5692, special: 'dual' },
+  { id: 'mac-desktop',   name: 'Mac Desktop',     w: 5120, h: 3200 },
+  { id: 'iphone-port',   name: 'iPhone',          w: 1320, h: 2868 },
+];
+
+const FILTERS = {
+  none:   null,
+  dark:   'brightness(0.6)',
+  bright: 'brightness(1.35)',
+  warm:   'sepia(0.3) saturate(1.4) hue-rotate(-15deg)',
+  cool:   'saturate(0.8) hue-rotate(30deg) brightness(1.05)',
+  bw:     'grayscale(1)',
+  sepia:  'sepia(0.7)',
+  vivid:  'saturate(2) contrast(1.1)',
+  fade:   'brightness(1.1) saturate(0.5) contrast(0.85)',
+};
+
+let bgImg = null, calImg = null;
+let calPos = 'top-center';
+let calSizePct = 40, calPadPct = 5;
+let activeFilter = 'none';
+let previewFmt = FORMATS[0];
+let generatedUrls = {};
+
+// Upload handlers
+function setupUpload(zoneId, inputId, labelId, onLoad) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  const label = document.getElementById(labelId);
+  input.addEventListener('change', e => {
+    if (e.target.files[0]) loadFile(e.target.files[0], zone, label, onLoad);
+  });
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag');
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0], zone, label, onLoad);
+  });
+}
+
+function loadFile(file, zone, label, onLoad) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => { onLoad(img); zone.classList.add('has-file'); label.classList.add('active'); label.innerHTML = `<strong>${file.name}</strong>Geladen ✓`; updateGenBtn(); updatePreview(); };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+setupUpload('bgZone', 'bgInput', 'bgLabel', img => { bgImg = img; });
+setupUpload('calZone', 'calInput', 'calLabel', img => { calImg = img; });
+
+// Position grid
+document.getElementById('posGrid').addEventListener('click', e => {
+  const cell = e.target.closest('.pos-cell');
+  if (!cell) return;
+  document.querySelectorAll('.pos-cell').forEach(c => c.classList.remove('active'));
+  cell.classList.add('active');
+  calPos = cell.dataset.pos;
+  updatePreview();
+});
+
+// Sliders
+document.getElementById('calSize').addEventListener('input', e => {
+  calSizePct = +e.target.value;
+  document.getElementById('calSizeVal').textContent = calSizePct + '%';
+  updatePreview();
+});
+document.getElementById('calPad').addEventListener('input', e => {
+  calPadPct = +e.target.value;
+  document.getElementById('calPadVal').textContent = calPadPct + '%';
+  updatePreview();
+});
+
+// Filters
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    activeFilter = chip.dataset.filter;
+    updatePreview();
+  });
+});
+
+// Format tabs
+function buildTabs() {
+  const tabs = document.getElementById('fmtTabs');
+  tabs.innerHTML = '';
+  FORMATS.forEach((fmt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'fmt-tab' + (i === 0 ? ' active' : '');
+    btn.textContent = fmt.name;
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.fmt-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      previewFmt = fmt;
+      updatePreview();
+    });
+    tabs.appendChild(btn);
+  });
+}
+buildTabs();
+
+// Build download grid
+function buildDownloadGrid() {
+  const grid = document.getElementById('downloadGrid');
+  grid.innerHTML = '';
+  FORMATS.forEach(fmt => {
+    const item = document.createElement('div');
+    item.className = 'dl-item';
+    item.innerHTML = `<div class="dl-name">${fmt.name}</div>
+      <div class="dl-btns">
+        <button class="dl-btn bg" id="dl-bg-${fmt.id}" disabled>Bg</button>
+        <button class="dl-btn cal" id="dl-cal-${fmt.id}" disabled>+ Kal</button>
+      </div>`;
+    grid.appendChild(item);
+  });
+}
+buildDownloadGrid();
+
+function updateGenBtn() {
+  document.getElementById('generateBtn').disabled = !bgImg;
+}
+
+// Drawing
+function drawBg(ctx, w, h, offsetY = 0) {
+  if (!bgImg) return;
+  const scale = Math.max(w / bgImg.width, h / bgImg.height);
+  const sw = bgImg.width * scale, sh = bgImg.height * scale;
+  const sx = (w - sw) / 2, sy = offsetY + (h - sh) / 2;
+  const filterStr = FILTERS[activeFilter];
+  if (filterStr) { ctx.save(); ctx.filter = filterStr; }
+  ctx.drawImage(bgImg, sx, sy, sw, sh);
+  if (filterStr) ctx.restore();
+}
+
+function drawCal(ctx, w, h, offsetY = 0) {
+  if (!calImg) return;
+  const calW = w * (calSizePct / 100);
+  const calH = calW * (calImg.height / calImg.width);
+  const pad = Math.min(w, h) * (calPadPct / 100);
+  const [v, h_] = calPos.split('-');
+  let x = pad, y = offsetY + pad;
+  if (h_ === 'center' || h_ === undefined && v === 'center') x = (w - calW) / 2;
+  else if (h_ === 'right') x = w - calW - pad;
+  if (v === 'mid') y = offsetY + (h - calH) / 2;
+  else if (v === 'bot') y = offsetY + h - calH - pad;
+  else if (v === 'center') { x = (w - calW) / 2; y = offsetY + (h - calH) / 2; }
+  ctx.drawImage(calImg, x, y, calW, calH);
+}
+
+function drawFormat(canvas, fmt, withCal) {
+  canvas.width = fmt.w;
+  canvas.height = fmt.h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, fmt.w, fmt.h);
+
+  if (fmt.special === 'dual') {
+    const topH = Math.round(fmt.h / 2); // landscape half
+    const botH = fmt.h - topH;          // portrait half
+    // Clip top half
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, fmt.w, topH); ctx.clip();
+    drawBg(ctx, fmt.w, topH, 0); ctx.restore();
+    // Clip bottom half
+    ctx.save(); ctx.beginPath(); ctx.rect(0, topH, fmt.w, botH); ctx.clip();
+    drawBg(ctx, fmt.w, botH, topH); ctx.restore();
+    if (withCal) { drawCal(ctx, fmt.w, topH, 0); drawCal(ctx, fmt.w, botH, topH); }
+  } else {
+    drawBg(ctx, fmt.w, fmt.h, 0);
+    if (withCal) drawCal(ctx, fmt.w, fmt.h, 0);
+  }
+}
+
+function updatePreview() {
+  if (!bgImg) return;
+  const canvas = document.getElementById('previewCanvas');
+  const fmt = previewFmt;
+  drawFormat(canvas, fmt, !!calImg);
+  // Scale for display
+  const maxW = canvas.parentElement.clientWidth - 40;
+  const ratio = fmt.h / fmt.w;
+  canvas.style.width = maxW + 'px';
+  canvas.style.height = (maxW * ratio) + 'px';
+  canvas.style.display = 'block';
+}
+
+// Generate
+document.getElementById('generateBtn').addEventListener('click', () => {
+  if (!bgImg) return;
+  document.getElementById('status').textContent = 'Generiere…';
+  document.getElementById('downloadAllBtn').style.display = 'none';
+  const work = document.getElementById('workCanvas');
+  generatedUrls = {};
+  setTimeout(() => {
+    FORMATS.forEach(fmt => {
+      drawFormat(work, fmt, false);
+      const bgUrl = work.toDataURL('image/png');
+      generatedUrls[`bg-${fmt.id}`] = { url: bgUrl, name: `${fmt.id}-hintergrund.png` };
+      const bgBtn = document.getElementById(`dl-bg-${fmt.id}`);
+      bgBtn.disabled = false;
+      bgBtn.onclick = () => dl(bgUrl, `${fmt.id}-hintergrund.png`);
+
+      drawFormat(work, fmt, true);
+      const calUrl = work.toDataURL('image/png');
+      generatedUrls[`cal-${fmt.id}`] = { url: calUrl, name: `${fmt.id}-mit-kalender.png` };
+      const calBtn = document.getElementById(`dl-cal-${fmt.id}`);
+      calBtn.disabled = !calImg;
+      calBtn.onclick = () => dl(calUrl, `${fmt.id}-mit-kalender.png`);
+    });
+    const count = calImg ? 10 : 5;
+    document.getElementById('status').textContent = `✓ ${count} Dateien bereit`;
+    document.getElementById('downloadAllBtn').style.display = 'block';
+    updatePreview();
+  }, 50);
+});
+
+// Download all
+document.getElementById('downloadAllBtn').addEventListener('click', () => {
+  Object.values(generatedUrls).forEach(({ url, name }, i) => {
+    if (!calImg && name.includes('mit-kalender')) return;
+    setTimeout(() => dl(url, name), i * 120);
+  });
+});
+
+function dl(dataUrl, filename) {
+  const a = document.createElement('a');
+  a.href = dataUrl; a.download = filename; a.click();
+}
+</script>
+</body>
+</html>
