@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallpaper Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f4f8; color: #1a2332; min-height: 100vh; }
+  header { background: white; border-bottom: 1px solid #e2e8f0; padding: 18px 40px; display: flex; align-items: center; gap: 14px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header span { font-size: 13px; color: #7a8fa6; }
+  .icon { width: 36px; height: 36px; background: #1a2332; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 17px; }
+
+  main { max-width: 1080px; margin: 28px auto; padding: 0 20px; display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+
+  .panel { background: white; border-radius: 14px; padding: 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+  .panel:last-child { margin-bottom: 0; }
+  .panel h2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #7a8fa6; margin-bottom: 14px; }
+
+  .upload-zone { border: 2px dashed #d1dce8; border-radius: 10px; padding: 18px 12px; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; margin-bottom: 8px; }
+  .upload-zone:hover, .upload-zone.drag { border-color: #4a90d9; background: #f5f9ff; }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-zone .emoji { font-size: 22px; margin-bottom: 4px; }
+  .upload-zone p { font-size: 12px; color: #7a8fa6; }
+  .preview-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; display: none; }
+  .upload-label { font-size: 12px; font-weight: 600; color: #1a2332; margin-bottom: 4px; display: block; }
+  .divider { height: 1px; background: #f0f4f8; margin: 16px 0; }
+
+  /* Calendar position */
+  .position-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 12px; }
+  .pos-btn { aspect-ratio: 1; border: 2px solid #e2e8f0; border-radius: 7px; cursor: pointer; background: white; transition: all 0.15s; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+  .pos-btn:hover { border-color: #4a90d9; background: #f5f9ff; }
+  .pos-btn.active { border-color: #1a2332; background: #1a2332; }
+
+  input[type=range] { width: 100%; margin: 5px 0 2px; accent-color: #1a2332; }
+  .range-row { display: flex; justify-content: space-between; font-size: 10px; color: #b0bec5; }
+
+  .generate-btn { width: 100%; padding: 13px; background: #1a2332; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-top: 14px; }
+  .generate-btn:hover { opacity: 0.85; }
+  .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .download-all-btn { width: 100%; padding: 14px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; margin-top: 10px; display: none; }
+  .download-all-btn:hover { opacity: 0.88; }
+  .gen-status { font-size: 12px; color: #4a90d9; text-align: center; margin-top: 8px; min-height: 16px; }
+
+  /* Right column */
+  .right { display: flex; flex-direction: column; gap: 16px; }
+
+  /* Format tabs */
+  .format-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .fmt-tab { padding: 6px 12px; border: 1.5px solid #e2e8f0; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; background: white; color: #7a8fa6; transition: all 0.15s; }
+  .fmt-tab:hover { border-color: #4a90d9; color: #4a90d9; }
+  .fmt-tab.active { background: #1a2332; border-color: #1a2332; color: white; }
+
+  /* Per-format crop panel */
+  .crop-panel { background: white; border-radius: 14px; padding: 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .crop-panel h2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #7a8fa6; margin-bottom: 14px; }
+
+  .crop-preview-wrap { position: relative; width: 100%; overflow: hidden; border-radius: 8px; border: 1px solid #e2e8f0; background: #f0f4f8; margin-bottom: 14px; }
+  .crop-preview-wrap canvas { display: block; width: 100%; }
+
+  .crop-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+  .crop-group label { font-size: 11px; font-weight: 600; color: #1a2332; display: flex; justify-content: space-between; }
+  .crop-group label span { color: #7a8fa6; font-weight: 400; }
+
+  .reset-btn { margin-top: 10px; padding: 8px; width: 100%; background: #f0f4f8; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; color: #7a8fa6; transition: all 0.15s; }
+  .reset-btn:hover { color: #1a2332; border-color: #1a2332; }
+
+  /* Formats download list */
+  .formats-panel { background: white; border-radius: 14px; padding: 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .formats-panel h2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #7a8fa6; margin-bottom: 12px; }
+  .format-list { display: flex; flex-direction: column; gap: 6px; }
+  .format-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e8edf3; }
+  .format-item .device { font-size: 12px; font-weight: 600; flex: 1; }
+  .format-item .dims { font-size: 11px; color: #7a8fa6; }
+  .dl-pair { display: flex; gap: 5px; }
+  .dl-btn { padding: 4px 9px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; background: white; color: #1a2332; transition: all 0.15s; }
+  .dl-btn:hover { background: #1a2332; color: white; border-color: #1a2332; }
+  .dl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .dl-btn.with-cal { background: #f0f4f8; }
+  .tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+  .tag-mac { background: #e8f4fd; color: #2980b9; }
+  .tag-ipad { background: #eaf7f0; color: #27ae60; }
+  .tag-iphone { background: #fdf0e8; color: #e67e22; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="icon">🖼</div>
+  <div>
+    <h1>Wallpaper Generator</h1>
+    <span>Bildausschnitt pro Format · Kalender platzieren · 10 Formate</span>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT -->
+  <div>
+    <div class="panel">
+      <h2>1 · Bilder hochladen</h2>
+      <label class="upload-label">Hintergrundbild</label>
+      <div class="upload-zone" id="bgZone">
+        <input type="file" id="bgInput" accept="image/*">
+        <div class="emoji">🌊</div>
+        <p><strong>Klicken</strong> oder hierher ziehen</p>
+      </div>
+      <img id="bgThumb" class="preview-thumb" alt="">
+      <label class="upload-label">Kalender</label>
+      <div class="upload-zone" id="calZone">
+        <input type="file" id="calInput" accept="image/*">
+        <div class="emoji">📅</div>
+        <p><strong>Klicken</strong> oder hierher ziehen</p>
+      </div>
+      <img id="calThumb" class="preview-thumb" alt="">
+    </div>
+
+    <div class="panel">
+      <h2>2 · Kalender-Position</h2>
+      <div class="position-grid">
+        <button class="pos-btn active" data-pos="top-left">↖</button>
+        <button class="pos-btn" data-pos="top-center">↑</button>
+        <button class="pos-btn" data-pos="top-right">↗</button>
+        <button class="pos-btn" data-pos="middle-left">←</button>
+        <button class="pos-btn" data-pos="center">⊙</button>
+        <button class="pos-btn" data-pos="middle-right">→</button>
+        <button class="pos-btn" data-pos="bottom-left">↙</button>
+        <button class="pos-btn" data-pos="bottom-center">↓</button>
+        <button class="pos-btn" data-pos="bottom-right">↘</button>
+      </div>
+      <label class="upload-label">Kalender-Größe: <span id="sizeVal">35</span>%</label>
+      <input type="range" id="calSize" min="10" max="80" value="35">
+      <div class="range-row"><span>10%</span><span>80%</span></div>
+      <label class="upload-label" style="margin-top:12px">Abstand: <span id="padVal">5</span>%</label>
+      <input type="range" id="calPad" min="1" max="20" value="5">
+      <div class="range-row"><span>1%</span><span>20%</span></div>
+      <button class="generate-btn" id="generateBtn" disabled>Vorschau & Download vorbereiten</button>
+      <div class="gen-status" id="genStatus"></div>
+      <button class="download-all-btn" id="downloadAllBtn">⬇ Alle Dateien herunterladen</button>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <!-- Per-format crop -->
+    <div class="crop-panel">
+      <h2>3 · Bildausschnitt pro Format</h2>
+      <div class="format-tabs" id="fmtTabs"></div>
+      <div class="crop-preview-wrap">
+        <canvas id="cropPreview"></canvas>
+      </div>
+      <div class="crop-controls">
+        <div class="crop-group">
+          <label>Zoom <span id="zoomLbl">100%</span></label>
+          <input type="range" id="zoomSlider" min="100" max="200" value="100">
+          <div class="range-row"><span>100%</span><span>200%</span></div>
+        </div>
+        <div class="crop-group">
+          <label>Horizontal <span id="panXLbl">0%</span></label>
+          <input type="range" id="panXSlider" min="-100" max="100" value="0">
+          <div class="range-row"><span>← links</span><span>rechts →</span></div>
+        </div>
+        <div class="crop-group">
+          <label>Vertikal <span id="panYLbl">0%</span></label>
+          <input type="range" id="panYSlider" min="-100" max="100" value="0">
+          <div class="range-row"><span>↑ oben</span><span>unten ↓</span></div>
+        </div>
+      </div>
+      <button class="reset-btn" id="resetCropBtn">Ausschnitt zurücksetzen</button>
+      <div id="qualityWarning" style="display:none; margin-top:10px; padding:9px 12px; background:#fff8e6; border:1px solid #f0c040; border-radius:8px; font-size:12px; color:#9a6700; line-height:1.4;"></div>
+    </div>
+
+    <!-- Download list -->
+    <div class="formats-panel">
+      <h2>Formate & Download</h2>
+      <div class="format-list" id="formatList"></div>
+    </div>
+  </div>
+</main>
+
+<canvas id="workCanvas" style="display:none"></canvas>
+
+<script>
+const FORMATS = [
+  { id:'ipad-quer',    label:'iPad Quer',     tag:'ipad',   w:2732, h:2048 },
+  { id:'ipad-hoch',   label:'iPad Hoch',      tag:'ipad',   w:2732, h:3643 },
+  { id:'ipad-gesamt', label:'iPad Gesamt',    tag:'ipad',   w:2732, h:5692 },
+  { id:'mac',         label:'Mac Desktop',    tag:'mac',    w:5120, h:3200 },
+  { id:'iphone',      label:'iPhone Hoch',    tag:'iphone', w:1320, h:2868 },
+];
+
+let bgImg = null, calImg = null, calPosition = 'top-left';
+let allFiles = [];
+let activeFmt = FORMATS[0].id;
+
+// Per-format crop state: zoom (1..2), panX (-1..1), panY (-1..1)
+const cropState = {};
+FORMATS.forEach(f => { cropState[f.id] = { zoom:1, panX:0, panY:0 }; });
+// iPad Gesamt has two sections
+cropState['ipad-gesamt-top'] = { zoom:1, panX:0, panY:0 };
+cropState['ipad-gesamt-bot'] = { zoom:1, panX:0, panY:0 };
+
+// Build format tabs
+const tabsEl = document.getElementById('fmtTabs');
+FORMATS.forEach(f => {
+  const btn = document.createElement('button');
+  btn.className = 'fmt-tab' + (f.id === activeFmt ? ' active' : '');
+  btn.textContent = f.label;
+  btn.dataset.id = f.id;
+  btn.addEventListener('click', () => {
+    activeFmt = f.id;
+    document.querySelectorAll('.fmt-tab').forEach(b => b.classList.toggle('active', b.dataset.id === f.id));
+    syncSliders();
+    renderCropPreview();
+  });
+  tabsEl.appendChild(btn);
+});
+
+// Build download list
+const formatList = document.getElementById('formatList');
+FORMATS.forEach(f => {
+  const item = document.createElement('div');
+  item.className = 'format-item';
+  item.innerHTML = `
+    <span class="tag tag-${f.tag}">${f.tag.toUpperCase()}</span>
+    <span class="device">${f.label}</span>
+    <span class="dims">${f.w}×${f.h}</span>
+    <div class="dl-pair">
+      <button class="dl-btn" id="dl-bg-${f.id}" disabled>Bg</button>
+      <button class="dl-btn with-cal" id="dl-cal-${f.id}" disabled>+ Kal</button>
+    </div>`;
+  formatList.appendChild(item);
+});
+
+// Upload helper
+function setupUpload(zoneId, inputId, thumbId, cb) {
+  const zone = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  const thumb = document.getElementById(thumbId);
+  const handle = file => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { cb(img); thumb.src = url; thumb.style.display = 'block'; };
+    img.src = url;
+  };
+  input.addEventListener('change', e => { if (e.target.files[0]) handle(e.target.files[0]); });
+  ['dragenter','dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('drag'); }));
+  zone.addEventListener('drop', e => { if (e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]); });
+}
+
+setupUpload('bgZone','bgInput','bgThumb', img => {
+  bgImg = img;
+  FORMATS.forEach(f => { cropState[f.id] = {zoom:1,panX:0,panY:0}; });
+  cropState['ipad-gesamt-top'] = {zoom:1,panX:0,panY:0};
+  cropState['ipad-gesamt-bot'] = {zoom:1,panX:0,panY:0};
+  syncSliders();
+  renderCropPreview();
+  document.getElementById('generateBtn').disabled = false;
+});
+
+setupUpload('calZone','calInput','calThumb', img => {
+  calImg = img;
+  renderCropPreview();
+});
+
+// Calendar position
+document.querySelectorAll('.pos-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    calPosition = btn.dataset.pos;
+    if (bgImg) renderCropPreview();
+  });
+});
+
+const calSizeSlider = document.getElementById('calSize');
+const calPadSlider  = document.getElementById('calPad');
+calSizeSlider.addEventListener('input', () => { document.getElementById('sizeVal').textContent = calSizeSlider.value; if (bgImg) renderCropPreview(); });
+calPadSlider.addEventListener('input',  () => { document.getElementById('padVal').textContent  = calPadSlider.value;  if (bgImg) renderCropPreview(); });
+
+// Crop sliders
+function syncSliders() {
+  const s = cropState[activeFmt];
+  document.getElementById('zoomSlider').value = Math.round(s.zoom * 100);
+  document.getElementById('panXSlider').value = Math.round(s.panX * 100);
+  document.getElementById('panYSlider').value = Math.round(s.panY * 100);
+  document.getElementById('zoomLbl').textContent = Math.round(s.zoom * 100) + '%';
+  document.getElementById('panXLbl').textContent = Math.round(s.panX * 100) + '%';
+  document.getElementById('panYLbl').textContent = Math.round(s.panY * 100) + '%';
+}
+
+['zoomSlider','panXSlider','panYSlider'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    const s = cropState[activeFmt];
+    s.zoom = parseInt(document.getElementById('zoomSlider').value) / 100;
+    s.panX = parseInt(document.getElementById('panXSlider').value) / 100;
+    s.panY = parseInt(document.getElementById('panYSlider').value) / 100;
+    document.getElementById('zoomLbl').textContent = Math.round(s.zoom*100) + '%';
+    document.getElementById('panXLbl').textContent = Math.round(s.panX*100) + '%';
+    document.getElementById('panYLbl').textContent = Math.round(s.panY*100) + '%';
+    // iPad Gesamt: sync both sections from same sliders
+    if (activeFmt === 'ipad-gesamt') {
+      cropState['ipad-gesamt-top'] = {...s};
+      cropState['ipad-gesamt-bot'] = {...s};
+    }
+    renderCropPreview();
+    checkQuality();
+  });
+});
+
+// Quality check – warn when zoomed image would be upscaled
+function checkQuality() {
+  if (!bgImg) return;
+  const warningEl = document.getElementById('qualityWarning');
+  const warnings = [];
+
+  FORMATS.forEach(fmt => {
+    const s = cropState[fmt.id];
+    if (s.zoom <= 1) return; // no zoom, no problem
+
+    // For iPad Gesamt use the larger (portrait) section as worst case
+    const targetW = fmt.id === 'ipad-gesamt' ? 2732 : fmt.w;
+    const targetH = fmt.id === 'ipad-gesamt' ? 3643 : fmt.h;
+
+    // Base scale to cover target at zoom=1
+    const baseScale = Math.max(targetW / bgImg.naturalWidth, targetH / bgImg.naturalHeight);
+    // After zoom: how big is the rendered image in output pixels?
+    const renderedW = bgImg.naturalWidth * baseScale * s.zoom;
+    const renderedH = bgImg.naturalHeight * baseScale * s.zoom;
+
+    // We're cropping into a targetW×targetH window — quality = rendered / target
+    // If zoom=1.5, rendered is 150% of target → quality = 1.5 → fine
+    // quality < 1 only if source image itself is too small even at zoom=1
+    // So the real check: source pixels available for the crop area
+    // At zoom Z, we show 1/Z of the image. Pixels in that crop = naturalW/Z * naturalH/Z
+    // Those pixels map to targetW×targetH → quality = (naturalW/Z)/targetW
+    const cropPixelsW = bgImg.naturalWidth / s.zoom;
+    const cropPixelsH = bgImg.naturalHeight / s.zoom;
+    const quality = Math.min(cropPixelsW / targetW, cropPixelsH / targetH);
+
+    if (quality < 1.0) {
+      warnings.push(`⚠️ ${fmt.label}: Auflösung nur ${Math.round(quality * 100)}% – Bild wird unscharf`);
+    }
+  });
+
+  if (warnings.length > 0) {
+    warningEl.innerHTML = warnings.join('<br>');
+    warningEl.style.display = 'block';
+  } else {
+    warningEl.style.display = 'none';
+  }
+}
+
+document.getElementById('resetCropBtn').addEventListener('click', () => {
+  cropState[activeFmt] = {zoom:1,panX:0,panY:0};
+  if (activeFmt === 'ipad-gesamt') {
+    cropState['ipad-gesamt-top'] = {zoom:1,panX:0,panY:0};
+    cropState['ipad-gesamt-bot'] = {zoom:1,panX:0,panY:0};
+  }
+  syncSliders();
+  renderCropPreview();
+});
+
+// Core drawing
+function drawBgCovered(ctx, x, y, w, h, state) {
+  if (!bgImg) return;
+  const s = state || {zoom:1,panX:0,panY:0};
+  const baseScale = Math.max(w / bgImg.naturalWidth, h / bgImg.naturalHeight);
+  const scale = baseScale * s.zoom;
+  const sw = bgImg.naturalWidth * scale, sh = bgImg.naturalHeight * scale;
+  const maxOffX = (sw - w) / 2, maxOffY = (sh - h) / 2;
+  const offX = Math.max(-maxOffX, Math.min(maxOffX, s.panX * maxOffX));
+  const offY = Math.max(-maxOffY, Math.min(maxOffY, s.panY * maxOffY));
+  ctx.drawImage(bgImg, x + (w-sw)/2 - offX, y + (h-sh)/2 - offY, sw, sh);
+}
+
+function drawCal(ctx, fmtW, fmtH, offsetY) {
+  if (!calImg) return;
+  const sizePct = parseInt(calSizeSlider.value)/100;
+  const padPct  = parseInt(calPadSlider.value)/100;
+  const calW = fmtW * sizePct;
+  const calH = calW * (calImg.naturalHeight / calImg.naturalWidth);
+  const pad  = fmtW * padPct;
+  const pos  = calPosition;
+  let x = pos.includes('left') ? pad : pos.includes('right') ? fmtW-calW-pad : (fmtW-calW)/2;
+  let y = pos.includes('top')  ? pad : pos.includes('bottom') ? fmtH-calH-pad : (fmtH-calH)/2;
+  ctx.drawImage(calImg, x, y + offsetY, calW, calH);
+}
+
+function drawFormat(canvas, fmt, withCal) {
+  canvas.width = fmt.w; canvas.height = fmt.h;
+  const ctx = canvas.getContext('2d');
+  if (fmt.id === 'ipad-gesamt') {
+    const topH = 2048, botH = 3643;
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,fmt.w,topH); ctx.clip();
+    drawBgCovered(ctx, 0, 0, fmt.w, topH, cropState['ipad-gesamt-top']); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0,topH,fmt.w,botH); ctx.clip();
+    drawBgCovered(ctx, 0, topH, fmt.w, botH, cropState['ipad-gesamt-bot']); ctx.restore();
+    if (withCal) { drawCal(ctx, fmt.w, topH, 0); drawCal(ctx, fmt.w, botH, topH); }
+  } else {
+    drawBgCovered(ctx, 0, 0, fmt.w, fmt.h, cropState[fmt.id]);
+    if (withCal) drawCal(ctx, fmt.w, fmt.h, 0);
+  }
+}
+
+// Crop preview (shows current active format at screen size)
+function renderCropPreview() {
+  if (!bgImg) return;
+  const fmt = FORMATS.find(f => f.id === activeFmt);
+  const canvas = document.getElementById('cropPreview');
+  // Render at 2x reduced size for display
+  const displayW = 640, displayH = Math.round(640 * fmt.h / fmt.w);
+  canvas.width = displayW; canvas.height = displayH;
+  canvas.style.aspectRatio = `${fmt.w}/${fmt.h}`;
+  const ctx = canvas.getContext('2d');
+
+  if (fmt.id === 'ipad-gesamt') {
+    const topH = Math.round(displayH * 2048/5692);
+    const botH = displayH - topH;
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,displayW,topH); ctx.clip();
+    drawBgCovered(ctx, 0, 0, displayW, topH, cropState['ipad-gesamt-top']); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0,topH,displayW,botH); ctx.clip();
+    drawBgCovered(ctx, 0, topH, displayW, botH, cropState['ipad-gesamt-bot']); ctx.restore();
+    if (calImg) { drawCal(ctx, displayW, topH, 0); drawCal(ctx, displayW, botH, topH); }
+    // Divider line
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2;
+    ctx.setLineDash([8,6]); ctx.beginPath(); ctx.moveTo(0,topH); ctx.lineTo(displayW,topH); ctx.stroke();
+  } else {
+    drawBgCovered(ctx, 0, 0, displayW, displayH, cropState[activeFmt]);
+    if (calImg) drawCal(ctx, displayW, displayH, 0);
+  }
+}
+
+// Generate
+document.getElementById('generateBtn').addEventListener('click', () => {
+  if (!bgImg) return;
+  document.getElementById('genStatus').textContent = 'Generiere…';
+  document.getElementById('downloadAllBtn').style.display = 'none';
+  allFiles = [];
+  const work = document.getElementById('workCanvas');
+  setTimeout(() => {
+    FORMATS.forEach(fmt => {
+      drawFormat(work, fmt, false);
+      const bgUrl = work.toDataURL('image/png');
+      allFiles.push({ dataUrl: bgUrl, filename: `${fmt.id}-hintergrund.png` });
+      const bgBtn = document.getElementById(`dl-bg-${fmt.id}`);
+      bgBtn.disabled = false; bgBtn.onclick = () => dl(bgUrl, `${fmt.id}-hintergrund.png`);
+
+      if (calImg) {
+        drawFormat(work, fmt, true);
+        const calUrl = work.toDataURL('image/png');
+        allFiles.push({ dataUrl: calUrl, filename: `${fmt.id}-mit-kalender.png` });
+        const calBtn = document.getElementById(`dl-cal-${fmt.id}`);
+        calBtn.disabled = false; calBtn.onclick = () => dl(calUrl, `${fmt.id}-mit-kalender.png`);
+      }
+    });
+    const count = allFiles.length;
+    document.getElementById('genStatus').textContent = `✓ ${count} Dateien bereit`;
+    const dlBtn = document.getElementById('downloadAllBtn');
+    dlBtn.textContent = `⬇ Alle ${count} Dateien herunterladen`;
+    dlBtn.style.display = 'block';
+  }, 50);
+});
+
+document.getElementById('downloadAllBtn').addEventListener('click', () => {
+  allFiles.forEach((f, i) => setTimeout(() => dl(f.dataUrl, f.filename), i * 200));
+});
+
+function dl(dataUrl, filename) {
+  const a = document.createElement('a'); a.href = dataUrl; a.download = filename; a.click();
+}
+</script>
+</body>
+</html>
