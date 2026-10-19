@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wallpaper Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #1a1a1f; color: #e8e6e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 28px; }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 24px; max-width: 1100px; margin: 0 auto; }
+  .panel { background: #24242b; border-radius: 14px; padding: 20px; margin-bottom: 16px; }
+  .panel h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 14px; }
+
+  .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  select { width: 100%; padding: 9px 12px; background: #2e2e38; border: 1px solid #3a3a44; border-radius: 8px; color: #e8e6e0; font-size: 13px; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+  select:focus { outline: none; border-color: #5a7fff; }
+  .filename-preview { margin-top: 10px; background: #1e1e26; border-radius: 8px; padding: 10px 12px; font-size: 11px; color: #666; line-height: 1.8; }
+  .filename-preview span { color: #8aafff; font-family: monospace; word-break: break-all; }
+
+  .upload-zone { border: 2px dashed #3a3a44; border-radius: 10px; padding: 18px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 12px; position: relative; }
+  .upload-zone:hover, .upload-zone.drag { border-color: #5a7fff; background: #1e1e2a; }
+  .upload-zone.has-file { border-color: #3a7a5a; background: #1a2420; border-style: solid; }
+  .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 22px; margin-bottom: 4px; }
+  .upload-label { font-size: 13px; color: #aaa; }
+  .upload-label strong { color: #e8e6e0; display: block; font-size: 13px; margin-bottom: 2px; }
+
+  .swap-btn { width: 100%; padding: 7px; margin: -4px 0 8px; border-radius: 8px; background: #2e2e38; border: none; color: #aaa; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .swap-btn:hover { background: #3a3a46; color: #e8e6e0; }
+  .second-box { background: #1e1e26; border-radius: 10px; padding: 12px; }
+  .second-box .upload-zone { margin-bottom: 10px; padding: 12px; }
+  .second-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #888; }
+  .hint { font-size: 11px; color: #666; margin: 0 0 14px; }
+  .dev-tabs { display: flex; gap: 5px; margin-bottom: 14px; }
+  .dev-tab { flex: 1; padding: 7px 4px; border-radius: 8px; background: #2e2e38; border: none; color: #888; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; text-align: center; line-height: 1.4; }
+  .dev-tab:hover { background: #3a3a46; color: #ccc; }
+  .dev-tab.active { background: #5a7fff; color: white; }
+
+  .device-panel { display: none; }
+  .device-panel.active { display: block; }
+
+  .pos-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 12px; }
+  .pos-cell { aspect-ratio: 1; border-radius: 6px; background: #2e2e38; cursor: pointer; border: 2px solid transparent; transition: all 0.15s; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #555; }
+  .pos-cell:hover { background: #3a3a46; color: #999; }
+  .pos-cell.active { background: #5a7fff22; border-color: #5a7fff; color: #5a7fff; }
+
+  .sub-label { font-size: 12px; color: #888; margin: 4px 0 6px; }
+  .rot-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 14px; }
+  .rot-btn { padding: 7px 4px; border-radius: 8px; background: #2e2e38; border: 2px solid transparent; color: #888; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .rot-btn:hover { background: #3a3a46; color: #ccc; }
+  .rot-btn.active { background: #5a7fff22; border-color: #5a7fff; color: #8aafff; }
+  .control-row { margin-bottom: 11px; }
+  .control-row label { font-size: 12px; color: #888; display: flex; justify-content: space-between; margin-bottom: 5px; }
+  .control-row label span { color: #ccc; font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: #5a7fff; }
+
+
+  .btn-generate { width: 100%; padding: 13px; background: #5a7fff; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; margin-bottom: 10px; }
+  .btn-generate:hover { opacity: 0.88; }
+  .btn-generate:disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn-dl-all { width: 100%; padding: 13px; background: #3a9a6a; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; display: none; }
+  .btn-dl-all:hover { opacity: 0.88; }
+  .status { font-size: 12px; color: #5a7fff; text-align: center; margin: 8px 0; min-height: 18px; }
+
+  .preview-area { display: flex; flex-direction: column; gap: 16px; }
+  #previewCanvas { width: 100%; border-radius: 10px; background: #1a1a1f; display: none; touch-action: none; }
+  .drag-hint { font-size: 11px; color: #666; margin-top: -8px; }
+  .fmt-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fmt-tab { padding: 5px 12px; border-radius: 20px; background: #2e2e38; border: none; color: #888; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .fmt-tab:hover { background: #3a3a46; }
+  .fmt-tab.active { background: #5a7fff; color: white; }
+
+  .dl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dl-item { background: #1e1e26; border-radius: 8px; padding: 10px; }
+  .dl-item .dl-name { font-size: 11px; color: #888; font-weight: 600; margin-bottom: 3px; }
+  .dl-item .dl-file { font-size: 10px; color: #444; margin-bottom: 6px; font-family: monospace; word-break: break-all; }
+  .dl-btns { display: flex; gap: 6px; }
+  .dl-btn { flex: 1; padding: 6px; border-radius: 6px; border: none; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+  .dl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .dl-btn.bg { background: #2e3a5a; color: #8aafff; }
+  .dl-btn.cal { background: #2e5a3a; color: #8acf9a; }
+  .dl-btn:hover:not(:disabled) { opacity: 0.8; }
+
+  canvas { display: none; }
+  .header { max-width: 1100px; margin: 0 auto 20px; }
+  @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Wallpaper Generator</h1>
+  <p class="subtitle">Hintergründe für alle Apple-Geräte mit Kalender-Overlay</p>
+</div>
+
+<div class="layout">
+  <div>
+
+    <div class="panel">
+      <h2>Monat & Jahr</h2>
+      <div class="date-row">
+        <select id="selMonth">
+          <option value="Januar">Januar</option><option value="Februar">Februar</option>
+          <option value="März">März</option><option value="April">April</option>
+          <option value="Mai">Mai</option><option value="Juni">Juni</option>
+          <option value="Juli">Juli</option><option value="August" selected>August</option>
+          <option value="September">September</option><option value="Oktober">Oktober</option>
+          <option value="November">November</option><option value="Dezember">Dezember</option>
+        </select>
+        <select id="selYear"></select>
+      </div>
+      <div class="filename-preview" id="filenamePreview"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Bilder</h2>
+      <div class="upload-zone" id="bgMainZone">
+        <input type="file" id="bgMainInput" accept="image/*">
+        <div class="upload-icon">🖼</div>
+        <div class="upload-label" id="bgMainLabel"><strong>Hauptbild</strong>für alle Geräte</div>
+      </div>
+      <div class="upload-zone" id="calZone">
+        <input type="file" id="calInput" accept="image/*">
+        <div class="upload-icon">📅</div>
+        <div class="upload-label" id="calLabel"><strong>Kalender hell</strong>z. B. weiße Zahlen · optional</div>
+      </div>
+      <div class="upload-zone" id="calDarkZone">
+        <input type="file" id="calDarkInput" accept="image/*">
+        <div class="upload-icon">🌑</div>
+        <div class="upload-label" id="calDarkLabel"><strong>Kalender dunkel</strong>z. B. schwarze Zahlen · optional – fehlt er, wird der helle automatisch umgekehrt</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Einstellungen pro Gerät</h2>
+      <div class="dev-tabs" id="devTabs">
+        <button class="dev-tab active" data-key="ipad-quer">📱 iPad<br>Quer</button>
+        <button class="dev-tab" data-key="ipad-hoch">📱 iPad<br>Hoch</button>
+        <button class="dev-tab" data-key="mac">🖥 Mac</button>
+        <button class="dev-tab" data-key="iphone">📲 iPhone</button>
+      </div>
+      <div id="panels"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Generieren</h2>
+      <button class="btn-generate" id="generateBtn" disabled>Vorschau & Dateien vorbereiten</button>
+      <div class="status" id="status"></div>
+      <button class="btn-dl-all" id="dlAllBtn">⬇ Alle Dateien herunterladen</button>
+    </div>
+
+  </div>
+
+  <div class="panel preview-area">
+    <h2>Vorschau</h2>
+    <div class="fmt-tabs" id="fmtTabs"></div>
+    <div class="second-box" id="secondBox" style="display:none">
+      <div class="upload-zone" id="bgSecondZone">
+        <input type="file" id="bgSecondInput" accept="image/*">
+        <div class="upload-label" id="bgSecondLabel"><strong>Zweites Bild für iPad Gesamt</strong>optional · sonst wird das Hauptbild genommen</div>
+      </div>
+      <div class="second-row">
+        <span>Zweites Bild kommt</span>
+        <div class="rot-row" id="secondPos" style="grid-template-columns:1fr 1fr;margin:0;flex:1">
+          <button class="rot-btn" data-pos="oben">oben (quer)</button>
+          <button class="rot-btn active" data-pos="unten">unten (hoch)</button>
+        </div>
+      </div>
+      <button class="swap-btn" id="secondRemove" style="display:none;margin:8px 0 0">✕ Zweites Bild entfernen</button>
+    </div>
+    <canvas id="previewCanvas"></canvas>
+    <p class="drag-hint" id="dragHint" style="display:none">✋ Kalender in der Vorschau mit der Maus an jede Stelle ziehen. Ein Klick ins Positions-Raster setzt ihn wieder fest.</p>
+    <div class="dl-grid" id="dlGrid"></div>
+  </div>
+</div>
+
+<canvas id="workCanvas"></canvas>
+
+<script>
+const FORMATS = [
+  { id:'ipad-quer',    name:'iPad Quer',     suffix:'Tablet_quer',      settingsKey:'ipad-quer',  w:2732, h:2048 },
+  { id:'ipad-hoch',   name:'iPad Hoch',     suffix:'Tablet_hoch',      settingsKey:'ipad-hoch',  w:2732, h:3643 },
+  { id:'ipad-gesamt', name:'iPad Gesamt',   suffix:'Tablet_quer+hoch', settingsKey:'ipad-quer',  w:2732, h:5692, special:'dual', settingsKey2:'ipad-hoch' },
+  { id:'mac',         name:'Mac Desktop',   suffix:'Desktop',          settingsKey:'mac',         w:5120, h:3200 },
+  { id:'iphone',      name:'iPhone',        suffix:'Handy',            settingsKey:'iphone',      w:1320, h:2868 },
+];
+
+const DEV_PREVIEW = { 'ipad-quer':'ipad-quer', 'ipad-hoch':'ipad-hoch', 'mac':'mac', 'iphone':'iphone' };
+
+
+const KEYS = ['ipad-quer','ipad-hoch','mac','iphone'];
+const devSettings = {};
+KEYS.forEach(k => { devSettings[k] = { pos:'top-center', size:40, pad:5, rot:0, inv:false, fx:0, fy:0 }; });
+
+const ARROWS = { 'top-left':'↖','top-center':'↑','top-right':'↗','mid-left':'←','center':'·','mid-right':'→','bot-left':'↙','bot-center':'↓','bot-right':'↘' };
+const POS_KEYS = ['top-left','top-center','top-right','mid-left','center','mid-right','bot-left','bot-center','bot-right'];
+
+const bg = { main:{img:null,name:''}, second:{img:null,name:''} };
+let secondPos = 'unten'; // wohin das zweite Bild bei iPad Gesamt kommt
+function hasBg(){ return !!bg.main.img; }
+const SECOND_EMPTY = '<strong>Zweites Bild für iPad Gesamt</strong>optional · sonst wird das Hauptbild genommen';
+let calLight=null, calDark=null, calLightInv=null, calDarkInv=null;
+function hasCal(){ return !!(calLight||calDark); }
+// Hell: eigener heller Kalender, sonst umgekehrter dunkler. Dunkel: eigener dunkler, sonst umgekehrter heller.
+function getCal(dark){ return dark ? (calDark||calLightInv) : (calLight||calDarkInv); }
+let previewFmtId='ipad-quer';
+let generatedUrls={};
+
+// Jahr
+const yearSel = document.getElementById('selYear');
+const curYear = new Date().getFullYear();
+for(let y=curYear; y<=curYear+3; y++){
+  const o=document.createElement('option');
+  o.value=String(y).slice(2); o.textContent=y;
+  if(y===curYear) o.selected=true;
+  yearSel.appendChild(o);
+}
+
+function getDatePrefix(){ return `${document.getElementById('selMonth').value}_${document.getElementById('selYear').value}`; }
+function getImageName(){ const n=bg.main.name; return n ? n.replace(/\.[^/.]+$/,'').replace(/\s+/g,'_') : 'Bild'; }
+function buildFilename(fmt, withCal){ return `${getDatePrefix()}_${getImageName()}_${withCal ? fmt.suffix+'_Kalender' : fmt.suffix}.png`; }
+
+function updateFilenamePreview(){
+  const ex = buildFilename(FORMATS[0], false);
+  document.getElementById('filenamePreview').innerHTML = `Beispiel:<br><span>${ex}</span>`;
+}
+document.getElementById('selMonth').addEventListener('change', ()=>{ updateFilenamePreview(); rebuildDlGrid(); });
+document.getElementById('selYear').addEventListener('change', ()=>{ updateFilenamePreview(); rebuildDlGrid(); });
+updateFilenamePreview();
+
+// Panels
+const panelsEl = document.getElementById('panels');
+KEYS.forEach(key => {
+  const div = document.createElement('div');
+  div.className = 'device-panel' + (key==='ipad-quer' ? ' active' : '');
+  div.id = `panel-${key}`;
+  div.innerHTML = `
+    <div class="sub-label">Hintergrund drehen</div>
+    <div class="rot-row" id="rot-${key}">
+      <button class="rot-btn active" data-rot="0">Nicht drehen</button>
+      <button class="rot-btn" data-rot="-90">↺ 90° links</button>
+      <button class="rot-btn" data-rot="90">↻ 90° rechts</button>
+    </div>
+    <div class="sub-label">Welcher Kalender?</div>
+    <div class="rot-row inv-row" id="inv-${key}" style="grid-template-columns:1fr 1fr">
+      <button class="rot-btn active" data-inv="0">☀ Hell</button>
+      <button class="rot-btn" data-inv="1">🌑 Dunkel</button>
+    </div>
+    <div class="sub-label">Kalender-Position</div>
+    <div class="pos-grid" id="pg-${key}">
+      ${POS_KEYS.map(p=>`<div class="pos-cell${p==='top-center'?' active':''}" data-pos="${p}">${ARROWS[p]}</div>`).join('')}
+    </div>
+    <div class="control-row">
+      <label>Größe <span id="${key}-sizeVal">40%</span></label>
+      <input type="range" id="${key}-size" min="10" max="80" value="40">
+    </div>
+    <div class="control-row">
+      <label>Abstand <span id="${key}-padVal">5%</span></label>
+      <input type="range" id="${key}-pad" min="0" max="20" value="5">
+    </div>`;
+  panelsEl.appendChild(div);
+
+  div.querySelector(`#rot-${key}`).addEventListener('click', e => {
+    const b = e.target.closest('.rot-btn');
+    if(!b) return;
+    div.querySelectorAll(`#rot-${key} .rot-btn`).forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    devSettings[key].rot = +b.dataset.rot;
+    updatePreview();
+  });
+  div.querySelector(`#inv-${key}`).addEventListener('click', e => {
+    const b = e.target.closest('.rot-btn');
+    if(!b) return;
+    div.querySelectorAll(`#inv-${key} .rot-btn`).forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    devSettings[key].inv = b.dataset.inv==='1';
+    updatePreview();
+  });
+  div.querySelector(`#pg-${key}`).addEventListener('click', e => {
+    const cell = e.target.closest('.pos-cell');
+    if(!cell) return;
+    div.querySelectorAll('.pos-cell').forEach(c=>c.classList.remove('active'));
+    cell.classList.add('active');
+    devSettings[key].pos = cell.dataset.pos;
+    updatePreview();
+  });
+  div.querySelector(`#${key}-size`).addEventListener('input', e => {
+    devSettings[key].size = +e.target.value;
+    document.getElementById(`${key}-sizeVal`).textContent = e.target.value+'%';
+    updatePreview();
+  });
+  div.querySelector(`#${key}-pad`).addEventListener('input', e => {
+    devSettings[key].pad = +e.target.value;
+    document.getElementById(`${key}-padVal`).textContent = e.target.value+'%';
+    updatePreview();
+  });
+});
+
+// Device Tabs
+document.getElementById('devTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.dev-tab');
+  if(!tab) return;
+  const key = tab.dataset.key;
+  document.querySelectorAll('.dev-tab').forEach(t=>t.classList.remove('active'));
+  tab.classList.add('active');
+  document.querySelectorAll('.device-panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`panel-${key}`).classList.add('active');
+  previewFmtId = DEV_PREVIEW[key];
+  document.querySelectorAll('.fmt-tab').forEach(t=>t.classList.toggle('active', t.dataset.fmtid===previewFmtId));
+  updatePreview();
+});
+
+
+
+// Upload
+function setupUpload(zoneId, inputId, labelId, onLoad){
+  const zone=document.getElementById(zoneId), input=document.getElementById(inputId), label=document.getElementById(labelId);
+  const load = file => {
+    const r = new FileReader();
+    r.onload = e => {
+      const img = new Image();
+      img.onload = () => { if(onLoad(img, file.name)===false){ input.value=''; return; } zone.classList.add('has-file'); label.innerHTML=`<strong>${file.name}</strong>Geladen ✓`; updateGenBtn(); updatePreview(); updateFilenamePreview(); rebuildDlGrid(); };
+      img.src = e.target.result;
+    };
+    r.readAsDataURL(file);
+  };
+  input.addEventListener('change', e=>{ if(e.target.files[0]) load(e.target.files[0]); });
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop', e=>{ e.preventDefault(); zone.classList.remove('drag'); if(e.dataTransfer.files[0]) load(e.dataTransfer.files[0]); });
+}
+function sizeOk(img, minW, minH){
+  if(img.width >= minW && img.height >= minH) return true;
+  return confirm(`⚠️ Bild zu klein!\n\nDein Bild: ${img.width} × ${img.height} px\nEmpfohlen: ${minW} × ${minH} px\n\nBei kleinen Bildern kann die Qualität leiden.\nTrotzdem weitermachen?`);
+}
+setupUpload('bgMainZone','bgMainInput','bgMainLabel',(img,name)=>{
+  if(!sizeOk(img, 2732, 3643)) return false;
+  bg.main={img,name};
+});
+setupUpload('bgSecondZone','bgSecondInput','bgSecondLabel',(img,name)=>{
+  if(!sizeOk(img, 2732, secondPos==='oben' ? 2048 : 3643)) return false;
+  bg.second={img,name};
+  document.getElementById('secondRemove').style.display='block';
+});
+document.getElementById('secondRemove').addEventListener('click',()=>{
+  bg.second={img:null,name:''};
+  document.getElementById('bgSecondZone').classList.remove('has-file');
+  document.getElementById('bgSecondLabel').innerHTML=SECOND_EMPTY;
+  document.getElementById('bgSecondInput').value='';
+  document.getElementById('secondRemove').style.display='none';
+  updatePreview();
+});
+document.getElementById('secondPos').addEventListener('click', e=>{
+  const b=e.target.closest('.rot-btn'); if(!b) return;
+  document.querySelectorAll('#secondPos .rot-btn').forEach(x=>x.classList.toggle('active', x===b));
+  secondPos=b.dataset.pos; updatePreview();
+});
+setupUpload('calZone','calInput','calLabel',(img)=>{ calLight=img; calLightInv=makeInverted(img); });
+setupUpload('calDarkZone','calDarkInput','calDarkLabel',(img)=>{ calDark=img; calDarkInv=makeInverted(img); });
+
+// Invertierte Kalender-Version einmalig erzeugen (Farben umkehren, Transparenz bleibt)
+function makeInverted(img){
+  const c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
+  const x=c.getContext('2d'); x.drawImage(img,0,0);
+  const d=x.getImageData(0,0,c.width,c.height), px=d.data;
+  for(let i=0;i<px.length;i+=4){ px[i]=255-px[i]; px[i+1]=255-px[i+1]; px[i+2]=255-px[i+2]; }
+  x.putImageData(d,0,0);
+  return c;
+}
+
+// Format Tabs
+function buildFmtTabs(){
+  const el = document.getElementById('fmtTabs'); el.innerHTML='';
+  FORMATS.forEach(fmt=>{
+    const btn = document.createElement('button');
+    btn.className = 'fmt-tab'+(fmt.id===previewFmtId?' active':'');
+    btn.textContent = fmt.name; btn.dataset.fmtid = fmt.id;
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.fmt-tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active'); previewFmtId=fmt.id; updatePreview();
+    });
+    el.appendChild(btn);
+  });
+}
+buildFmtTabs();
+
+function rebuildDlGrid(){
+  const grid = document.getElementById('dlGrid'); grid.innerHTML='';
+  FORMATS.forEach(fmt=>{
+    const item = document.createElement('div'); item.className='dl-item';
+    item.innerHTML=`<div class="dl-name">${fmt.name}</div>
+      <div class="dl-file" id="fname-${fmt.id}">${buildFilename(fmt,false)}</div>
+      <div class="dl-btns">
+        <button class="dl-btn bg" id="dl-bg-${fmt.id}" disabled>Bg</button>
+        <button class="dl-btn cal" id="dl-cal-${fmt.id}" disabled>+ Kal</button>
+      </div>`;
+    grid.appendChild(item);
+  });
+}
+rebuildDlGrid();
+
+function updateGenBtn(){ document.getElementById('generateBtn').disabled=!hasBg(); }
+
+function drawBg(ctx, w, h, key, offsetY=0, img=null){
+  const bgImg = img || bg.main.img;
+  if(!bgImg) return;
+  const rot = (devSettings[key] && devSettings[key].rot) || 0;
+  const turned = rot !== 0;
+  // Bei Drehung tauschen Breite und Höhe des Bildes
+  const iw = turned ? bgImg.height : bgImg.width;
+  const ih = turned ? bgImg.width  : bgImg.height;
+  const scale = Math.max(w/iw, h/ih);
+  const dw = bgImg.width*scale, dh = bgImg.height*scale;
+  ctx.save();
+  ctx.translate(w/2, offsetY + h/2);
+  ctx.rotate(rot * Math.PI/180);
+  ctx.drawImage(bgImg, -dw/2, -dh/2, dw, dh);
+  ctx.restore();
+}
+
+// Position und Größe des Kalenders innerhalb einer Fläche (w × h), ohne offsetY
+function calRect(w, h, key){
+  const s = devSettings[key];
+  const cal = getCal(s.inv);
+  const calW = w*(s.size/100);
+  const calH = calW*(cal.height/cal.width);
+  let x, y;
+  if(s.pos==='free'){
+    // frei verschoben: Position als Anteil der Fläche, im Bild gehalten
+    x = Math.max(0, Math.min(w-calW, s.fx*w));
+    y = Math.max(0, Math.min(h-calH, s.fy*h));
+  } else {
+    const pad = Math.min(w,h)*(s.pad/100);
+    const parts = s.pos.split('-');
+    const v=parts[0], h_=parts[1];
+    x=pad; y=pad;
+    if(h_==='center') x=(w-calW)/2;
+    else if(h_==='right') x=w-calW-pad;
+    if(v==='mid') y=(h-calH)/2;
+    else if(v==='bot') y=h-calH-pad;
+    else if(v==='center'){ x=(w-calW)/2; y=(h-calH)/2; }
+  }
+  return { cal, x, y, w:calW, h:calH };
+}
+
+function drawCal(ctx, w, h, key, offsetY=0){
+  if(!hasCal()) return;
+  const c = calRect(w, h, key);
+  ctx.drawImage(c.cal, c.x, offsetY + c.y, c.w, c.h);
+}
+
+// Freies Verschieben in der Vorschau
+// Liefert für einen Punkt im Format die zuständige Fläche (bei iPad Gesamt: obere oder untere Hälfte)
+function areaAt(fmt, py){
+  if(fmt.special==='dual'){
+    return py < 2048 ? { key:'ipad-quer', off:0, w:fmt.w, h:2048 } : { key:'ipad-hoch', off:2048, w:fmt.w, h:3643 };
+  }
+  return { key:fmt.settingsKey, off:0, w:fmt.w, h:fmt.h };
+}
+(function setupDrag(){
+  const cv = document.getElementById('previewCanvas');
+  let drag = null, raf = 0;
+  const toCanvas = e => { const b = cv.getBoundingClientRect(); return { x:(e.clientX-b.left)*cv.width/b.width, y:(e.clientY-b.top)*cv.height/b.height }; };
+  const hit = p => {
+    if(!hasCal()) return null;
+    const fmt = FORMATS.find(f=>f.id===previewFmtId);
+    const a = areaAt(fmt, p.y), c = calRect(a.w, a.h, a.key);
+    const inside = p.x>=c.x && p.x<=c.x+c.w && p.y>=a.off+c.y && p.y<=a.off+c.y+c.h;
+    return inside ? { a, c } : null;
+  };
+  cv.addEventListener('pointerdown', e => {
+    const p = toCanvas(e), h = hit(p);
+    if(!h) return;
+    drag = { a:h.a, dx:p.x-h.c.x, dy:p.y-h.a.off-h.c.y };
+    cv.setPointerCapture(e.pointerId);
+    cv.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  cv.addEventListener('pointermove', e => {
+    const p = toCanvas(e);
+    if(!drag){ cv.style.cursor = hit(p) ? 'grab' : 'default'; return; }
+    const s = devSettings[drag.a.key];
+    s.pos = 'free';
+    s.fx = (p.x - drag.dx) / drag.a.w;
+    s.fy = (p.y - drag.a.off - drag.dy) / drag.a.h;
+    document.querySelectorAll(`#pg-${drag.a.key} .pos-cell`).forEach(c=>c.classList.remove('active'));
+    if(!raf) raf = requestAnimationFrame(()=>{ raf=0; updatePreview(); });
+  });
+  const end = () => {
+    if(!drag) return;
+    // Position auf den sichtbaren Bereich begrenzt speichern
+    const s = devSettings[drag.a.key], c = calRect(drag.a.w, drag.a.h, drag.a.key);
+    s.fx = c.x/drag.a.w; s.fy = c.y/drag.a.h;
+    drag = null; cv.style.cursor = 'grab';
+  };
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+})();
+
+function drawFormat(canvas, fmt, withCal){
+  canvas.width=fmt.w; canvas.height=fmt.h;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,fmt.w,fmt.h);
+  if(fmt.special==='dual'){
+    const topH=2048, botH=3643;
+    ctx.save(); ctx.beginPath(); ctx.rect(0,0,fmt.w,topH); ctx.clip();
+    drawBg(ctx,fmt.w,topH,'ipad-quer',0, secondPos==='oben' ? bg.second.img : null); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0,topH,fmt.w,botH); ctx.clip();
+    drawBg(ctx,fmt.w,botH,'ipad-hoch',topH, secondPos==='unten' ? bg.second.img : null); ctx.restore();
+    if(withCal){
+      drawCal(ctx,fmt.w,topH,'ipad-quer',0);
+      drawCal(ctx,fmt.w,botH,'ipad-hoch',topH);
+    }
+  } else {
+    drawBg(ctx,fmt.w,fmt.h,fmt.settingsKey,0);
+    if(withCal) drawCal(ctx,fmt.w,fmt.h,fmt.settingsKey,0);
+  }
+}
+
+function updatePreview(){
+  document.getElementById('secondBox').style.display = previewFmtId==='ipad-gesamt' ? 'block' : 'none';
+  document.getElementById('dragHint').style.display = (hasBg() && hasCal()) ? 'block' : 'none';
+  if(!hasBg()) return;
+  const fmt = FORMATS.find(f=>f.id===previewFmtId)||FORMATS[0];
+  const canvas = document.getElementById('previewCanvas');
+  drawFormat(canvas, fmt, hasCal());
+  const maxW = canvas.parentElement.clientWidth-40;
+  canvas.style.width = maxW+'px';
+  canvas.style.height = (maxW*fmt.h/fmt.w)+'px';
+  canvas.style.display = 'block';
+}
+
+document.getElementById('generateBtn').addEventListener('click',()=>{
+  if(!hasBg()) return;
+  document.getElementById('status').textContent='Generiere…';
+  document.getElementById('dlAllBtn').style.display='none';
+  const work = document.getElementById('workCanvas');
+  generatedUrls={};
+  setTimeout(()=>{
+    FORMATS.forEach(fmt=>{
+      const bgName=buildFilename(fmt,false), calName=buildFilename(fmt,true);
+      drawFormat(work,fmt,false);
+      const bgUrl=work.toDataURL('image/png');
+      generatedUrls[`bg-${fmt.id}`]={url:bgUrl,name:bgName};
+      const bgBtn=document.getElementById(`dl-bg-${fmt.id}`);
+      bgBtn.disabled=false; bgBtn.onclick=()=>dl(bgUrl,bgName);
+      drawFormat(work,fmt,true);
+      const calUrl=work.toDataURL('image/png');
+      generatedUrls[`cal-${fmt.id}`]={url:calUrl,name:calName};
+      const calBtn=document.getElementById(`dl-cal-${fmt.id}`);
+      calBtn.disabled=!hasCal(); calBtn.onclick=()=>dl(calUrl,calName);
+      const fnEl=document.getElementById(`fname-${fmt.id}`);
+      if(fnEl) fnEl.textContent=bgName;
+    });
+    document.getElementById('status').textContent=`✓ ${hasCal()?10:5} Dateien bereit`;
+    document.getElementById('dlAllBtn').style.display='block';
+    updatePreview();
+  },50);
+});
+
+document.getElementById('dlAllBtn').addEventListener('click',()=>{
+  Object.values(generatedUrls).forEach(({url,name},i)=>{
+    if(!hasCal()&&name.includes('Kalender')) return;
+    setTimeout(()=>dl(url,name),i*120);
+  });
+});
+
+function dl(dataUrl,filename){ const a=document.createElement('a'); a.href=dataUrl; a.download=filename; a.click(); }
+</script>
+</body>
+</html>
